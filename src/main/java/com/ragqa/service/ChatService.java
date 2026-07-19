@@ -159,7 +159,6 @@ public class ChatService {
      */
     private List<EmbeddingMatch<TextSegment>> retrieveRelevantDocs(String question, int topK) {
         // 将问题向量化 - embed() 返回 Response<Embedding>，content() 返回 Embedding 对象
-        // Embedding 内部封装了 float[] 向量，但 findRelevant() 需要 Embedding 类型
         Embedding questionEmbedding = embeddingModel.embed(question).content();
 
         // 在向量库中搜索最相关的文档

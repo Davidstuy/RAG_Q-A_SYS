@@ -19,7 +19,7 @@ openai:
 # Qdrant 向量数据库配置
 qdrant:
   host: localhost
-  port: 6334        # gRPC 端口，Java SDK 用这个（不是 6333 的 REST 端口）
+  port: 6333        # REST API 端口
   collection: rag_documents
 
 logging:
