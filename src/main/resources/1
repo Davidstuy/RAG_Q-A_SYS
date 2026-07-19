@@ -1,0 +1,22 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: rag-qa-system
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+
+openai:
+  api-key: sk-ws-H.RERRREY.lwPj.MEUCIQCzUE-9J7jp9tQs7jzvCcZRxsgnTD6vmNWZ84EfEBsMOgIgetD9rbDvK0WeOABpEYgVBzEW36xUcPluk3JGoQ-_jEc
+  base-url: https://dashscope.aliyuncs.com/compatible-mode/v1
+  model:
+    chat: qwen3.7-max-2026-05-20
+    embedding: text-embedding-v4
+
+logging:
+  level:
+    com.ragqa: DEBUG
+    dev.langchain4j: DEBUG
