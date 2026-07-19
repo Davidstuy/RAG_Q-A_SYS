@@ -7,8 +7,10 @@ import com.ragqa.service.ChatService;
 import com.ragqa.service.HistoryService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import reactor.core.publisher.Flux;
 
 import java.util.List;
 import java.util.Set;
@@ -106,9 +108,31 @@ public class ChatController {
     }
     
 
-// TODO: 流式问答接口（待实现）
-//    @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-//    public Flux<String> chatStream(@RequestBody ChatRequest request) {
-//        return chatService.streamChat(request.getQuestion());
-//    }
+    /**
+     * 流式问答接口
+     *
+     * 教学：
+     * - produces = TEXT_EVENT_STREAM_VALUE 表示这是一个 SSE（Server-Sent Events）端点
+     * - SSE 是一种 HTTP 协议扩展，允许服务器持续向客户端推送数据
+     * - 浏览器收到的数据格式：data: 你\n\ndata: 好\n\ndata: 吗\n\n
+     * - Flux<String> 中的每个 String 元素会被自动包装为一个 SSE 事件
+     */
+    @PostMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Flux<String> chatStream(
+        @RequestBody ChatRequest request,
+        @RequestParam(required = false) String sessionId
+    ) {
+        // 生成或使用现有会话ID
+        if (sessionId == null || sessionId.isBlank()) {
+            sessionId = UUID.randomUUID().toString();
+        }
+
+        // 验证输入
+        if (request.getQuestion() == null || request.getQuestion().isBlank()) {
+            return Flux.just("问题不能为空");
+        }
+
+        // 返回 Flux 流，Spring 会自动处理 SSE 协议
+        return chatService.streamChat(request, sessionId);
+    }
 }

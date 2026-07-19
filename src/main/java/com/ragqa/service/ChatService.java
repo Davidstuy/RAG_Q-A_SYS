@@ -4,18 +4,24 @@ import com.ragqa.model.ChatRequest;
 import com.ragqa.model.ChatResponse;
 import dev.langchain4j.data.embedding.Embedding;
 import dev.langchain4j.data.message.AiMessage;
+import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.SystemMessage;
 import dev.langchain4j.data.message.UserMessage;
 import dev.langchain4j.data.segment.TextSegment;
+import dev.langchain4j.model.StreamingResponseHandler;
 import dev.langchain4j.model.chat.ChatLanguageModel;
+import dev.langchain4j.model.chat.StreamingChatLanguageModel;
 import dev.langchain4j.model.embedding.EmbeddingModel;
+import dev.langchain4j.model.output.Response;
 import dev.langchain4j.store.embedding.EmbeddingMatch;
 import dev.langchain4j.store.embedding.EmbeddingStore;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import reactor.core.publisher.Flux;
 
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -24,6 +30,7 @@ import java.util.stream.Collectors;
 public class ChatService {
     
     private final ChatLanguageModel chatLanguageModel;
+    private final StreamingChatLanguageModel streamingChatLanguageModel;
     private final EmbeddingModel embeddingModel;
     private final EmbeddingStore<TextSegment> embeddingStore;
     private final HistoryService historyService;
@@ -73,6 +80,80 @@ public class ChatService {
         return response;
     }
     
+    /**
+     * 流式问答 —— 教学核心
+     *
+     * Flux.create() 的作用：
+     *   把「回调式」的 LLM API 转换成「响应式」的 Flux 流
+     *
+     * 整体流程：
+     *   1. 检索相关文档（RAG 的 R — Retrieval）
+     *   2. 构建 Prompt（包含历史 + 文档上下文）
+     *   3. 调用流式 LLM，每个 token 通过 Flux 推送给前端
+     *   4. 完成后保存对话历史
+     */
+    public Flux<String> streamChat(ChatRequest request, String sessionId) {
+        log.info("收到流式问题: {}", request.getQuestion());
+
+        // 1. 检索相关文档（和普通模式一样）
+        List<EmbeddingMatch<TextSegment>> relevantDocs = retrieveRelevantDocs(
+            request.getQuestion(),
+            request.getTopK()
+        );
+
+        // 2. 加载对话历史
+        List<com.ragqa.model.ChatHistory> history =
+            historyService.getHistory(sessionId, MAX_HISTORY);
+
+        // 3. 构建上下文和 Prompt
+        String context = buildContext(relevantDocs);
+        String prompt = buildPromptWithHistory(request.getQuestion(), context, history);
+
+        // 4. 构建消息列表
+        List<ChatMessage> messages = List.of(
+            SystemMessage.from(prompt),
+            UserMessage.from("请回答问题")
+        );
+
+        // 5. 用 Flux.create() 桥接回调式 API 到响应式流
+        //    教学：Flux.create() 允许我们手动控制数据的发射
+        //    sink.next()  = 发射一个元素
+        //    sink.complete() = 标记流结束
+        //    sink.error() = 标记流出错
+        return Flux.create(sink -> {
+            // 用于累积完整回答，保存到历史
+            StringBuilder fullAnswer = new StringBuilder();
+
+            streamingChatLanguageModel.generate(messages, new StreamingResponseHandler<>() {
+
+                @Override
+                public void onNext(String token) {
+                    // 教学：每收到一个 token，就通过 Flux 推送给前端
+                    // 这就是「逐字显示」的秘密
+                    fullAnswer.append(token);
+                    sink.next(token);
+                }
+
+                @Override
+                public void onComplete(Response<AiMessage> response) {
+                    // 教学：LLM 生成完毕，关闭 Flux 流
+                    // 同时保存对话历史（和普通模式一样）
+                    historyService.save(sessionId, "user", request.getQuestion());
+                    historyService.save(sessionId, "assistant", fullAnswer.toString());
+                    sink.complete();
+                    log.info("流式回答完成，长度: {}", fullAnswer.length());
+                }
+
+                @Override
+                public void onError(Throwable error) {
+                    // 教学：出错时通知前端
+                    log.error("流式生成失败", error);
+                    sink.error(error);
+                }
+            });
+        });
+    }
+
     /**
      * 检索相关文档
      */
