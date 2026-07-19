@@ -9,6 +9,9 @@ import dev.langchain4j.model.openai.OpenAiEmbeddingModel;
 import dev.langchain4j.model.openai.OpenAiStreamingChatModel;
 import dev.langchain4j.store.embedding.EmbeddingStore;
 import dev.langchain4j.store.embedding.inmemory.InMemoryEmbeddingStore;
+import io.qdrant.client.QdrantClient;
+import io.qdrant.client.QdrantGrpcClient;
+import dev.langchain4j.store.embedding.qdrant.QdrantEmbeddingStore;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -28,6 +31,15 @@ public class LangChain4jConfig {
 
     @Value("${openai.model.embedding}")
     private String embeddingModelName;
+
+    @Value("${qdrant.host}")
+    private String qdrantHost;
+
+    @Value("${qdrant.port}")
+    private int qdrantPort;
+
+    @Value("${qdrant.collection}")
+    private String qdrantCollection;
 
     @Bean
     public ChatLanguageModel chatLanguageModel() {
@@ -68,10 +80,21 @@ public class LangChain4jConfig {
     }
 
     /**
-     * 配置向量存储（内存存储，开发测试用）
+     * 配置向量存储 —— Qdrant 持久化向量数据库
+     *
+     * 教学：EmbeddingStore 是 LangChain4j 的向量存储接口
+     * - InMemoryEmbeddingStore: 数据存在内存，重启丢失（之前用的）
+     * - QdrantEmbeddingStore: 数据存在 Qdrant，重启不丢（现在用的）
+     *
+     * 由于 ChatService 和 DocumentService 都依赖接口而非实现，
+     * 切换存储后其他代码完全不用改 —— 这就是面向接口编程的好处
      */
     @Bean
     public EmbeddingStore<TextSegment> embeddingStore() {
-        return new InMemoryEmbeddingStore<>();
+        return QdrantEmbeddingStore.builder()
+            .host(qdrantHost)
+            .port(qdrantPort)
+            .collectionName(qdrantCollection)
+            .build();
     }
 }
