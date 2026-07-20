@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -98,12 +99,33 @@ public class ChatController {
     @GetMapping("/sessions")
     public ResponseEntity<?> getAllSessions() {
         try {
-            Set<String> sessions = historyService.getAllSessionIds();
-            return ResponseEntity.ok(sessions);
+            return ResponseEntity.ok(historyService.getAllSessions());
         } catch (Exception e) {
             log.error("获取会话列表失败", e);
             return ResponseEntity.internalServerError()
                 .body("获取会话列表失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 重命名会话
+     */
+    @PutMapping("/sessions/{sessionId}/name")
+    public ResponseEntity<?> renameSession(
+        @PathVariable String sessionId,
+        @RequestBody Map<String, String> request
+    ) {
+        try {
+            String name = request.get("name");
+            if (name == null || name.isBlank()) {
+                return ResponseEntity.badRequest().body("名称不能为空");
+            }
+            historyService.setSessionName(sessionId, name.trim());
+            return ResponseEntity.ok().build();
+        } catch (Exception e) {
+            log.error("重命名会话失败", e);
+            return ResponseEntity.internalServerError()
+                .body("重命名失败: " + e.getMessage());
         }
     }
     

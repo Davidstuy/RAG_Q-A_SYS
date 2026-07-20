@@ -11,10 +11,12 @@ import java.util.concurrent.ConcurrentHashMap;
 @Slf4j
 @Service
 public class HistoryService {
-    
+
     // 使用内存存储（生产环境应使用 Redis/数据库）
     private final Map<String, List<ChatHistory>> historyStore = new ConcurrentHashMap<>();
-    
+    // 会话名称映射 (sessionId -> displayName)
+    private final Map<String, String> sessionNames = new ConcurrentHashMap<>();
+
     /**
      * 保存对话
      */
@@ -54,5 +56,34 @@ public class HistoryService {
      */
     public Set<String> getAllSessionIds() {
         return historyStore.keySet();
+    }
+
+    /**
+     * 获取会话名称
+     */
+    public String getSessionName(String sessionId) {
+        return sessionNames.getOrDefault(sessionId, "新對話");
+    }
+
+    /**
+     * 设置会话名称
+     */
+    public void setSessionName(String sessionId, String name) {
+        sessionNames.put(sessionId, name);
+        log.info("更新会话名称: session={}, name={}", sessionId, name);
+    }
+
+    /**
+     * 获取所有会话信息（ID + 名称）
+     */
+    public List<Map<String, String>> getAllSessions() {
+        List<Map<String, String>> sessions = new ArrayList<>();
+        for (String sid : historyStore.keySet()) {
+            Map<String, String> session = new HashMap<>();
+            session.put("id", sid);
+            session.put("name", getSessionName(sid));
+            sessions.add(session);
+        }
+        return sessions;
     }
 }
