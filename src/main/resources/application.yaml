@@ -10,7 +10,7 @@ spring:
       max-request-size: 10MB
 
 openai:
-  api-key: YOUR_API_KEY_HERE
+  api-key: sk-ws-H.REIRDPM.joDC.MEUCIQDpSRf21C6n7pX2nWVIa-_lN3MRGkZWPoQN83uHI1TRDQIgbY0_D4vgg9f0DzRnF9Vp0p3KHOf-iVfx6-ATB7lwq3I
   base-url: https://dashscope.aliyuncs.com/compatible-mode/v1
   model:
     chat: qwen3.7-max-2026-05-20
